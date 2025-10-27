@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pulsechain x402 ($pX402) – Permit Payments on PulseChain</title>
+    <meta name="description" content="Pulsechain x402 ($pX402): EIP-2612 Permit Payment System implementation on PulseChain" />
+    <link rel="icon" href="logo.png" />
+    <style>
+        /* ==========================================
+        = FILE: styles.css
+        = Paleta com gradiente PulseChain (ciano → roxo → pink)
+        ========================================== */
+        :root{
+            --bg:#0a0b10; --bg2:#0f1118; --card:#141826; --muted:#9aa2b1; --text:#e6e8ee;
+            --pulse-cyan:#00c2ff; --pulse-purple:#9b59ff; --pulse-pink:#ff2e97;
+            --accent-start: var(--pulse-cyan);
+            --accent-mid: var(--pulse-purple);
+            --accent-end: var(--pulse-pink);
+        }
+        *{box-sizing:border-box}
+        html,body{margin:0;padding:0;background:
+            radial-gradient(1200px 800px at 60% -10%, rgba(155,89,255,.22), transparent 55%),
+            linear-gradient(180deg, var(--bg), var(--bg2));
+            color:var(--text); font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif}
+
+        .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:18px;padding:14px 22px;background:rgba(10,12,16,.75);backdrop-filter: blur(8px); border-bottom:1px solid rgba(255,255,255,.05)}
+        .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);font-weight:800}
+        .brand-logo{width:28px;height:28px;border-radius:8px;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.06)}
+        .nav{margin-left:auto;display:flex;gap:16px}
+        .nav a{color:#c9d1e2;text-decoration:none;padding:6px 8px;border-radius:10px;transition:background .2s}
+        .nav a:hover, .nav a.active{background:rgba(255,255,255,.06);color:var(--text)}
+        .nav .bang{font-weight:900}
+        .actions{display:flex;gap:10px;align-items:center}
+
+        .btn{border:0;border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:800;letter-spacing:.01em;transition:opacity .2s}
+        .btn:hover{opacity:.9}
+        .btn-primary{background:linear-gradient(90deg,var(--accent-start),var(--accent-mid),var(--accent-end)); color:white; box-shadow:0 8px 24px rgba(255,46,151,.25)}
+        .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.12);color:var(--text)}
+        .btn-twitter{background:linear-gradient(90deg,#1da1f2 0%, #49b7ff 100%); color:#fff}
+        .btn-buy{background:linear-gradient(90deg,var(--accent-end),var(--accent-mid)); color:#fff}
+
+        .container{max-width:1100px;margin:0 auto;padding:40px 22px}
+        .grid{display:grid;gap:18px}
+        .grid.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+        .grid.cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+        .card{background:var(--card);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:22px}
+        .card.hilo{padding:28px 26px}
+        .badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:linear-gradient(90deg,rgba(0,194,255,.18),rgba(155,89,255,.18),rgba(255,46,151,.18));color:#d7cbff;font-weight:800;font-size:12px}
+        .kicker{letter-spacing:.2em;text-transform:uppercase;color:#9aa2b1;font-size:12px}
+        .h1{font-size:54px;line-height:1.05;margin:10px 0 6px;font-weight:900;background:linear-gradient(90deg,var(--pulse-cyan),var(--pulse-purple),var(--pulse-pink));-webkit-background-clip:text;background-clip:text;color:transparent}
+        .h2{font-size:32px;margin:0 0 18px;font-weight:850}
+        .p{color:#c9d1e2}
+        .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+        .center{text-align:center}
+
+        .hero{padding:56px 0 28px}
+        .hero-logo{width:160px;height:160px;border-radius:28px;object-fit:cover;margin:0 auto 14px;box-shadow:0 12px 48px rgba(255,46,151,.22)}
+        .hero-actions{display:flex;gap:12px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+        .hero-actions .btn{min-width:120px}
+
+        .list{display:grid;gap:12px}
+        .list li{display:flex;align-items:flex-start;gap:10px}
+        .list .dot{width:9px;height:9px;border-radius:99px;margin-top:8px;background:linear-gradient(90deg,var(--accent-start),var(--accent-mid),var(--accent-end))}
+
+        .endpoint{background:var(--card);border:1px solid rgba(255,255,255,.06);border-radius:14px;overflow:hidden}
+        .endpoint-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.06)}
+        .endpoint-head .method{font-size:12px;font-weight:900;border-radius:9px;padding:6px 9px;color:#06090e}
+        .endpoint-head .GET{background:#7ee787}
+        .endpoint-head .POST{background:#91a7ff}
+        .endpoint-body{padding:14px}
+        .code{background:#0e1220;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px;font-size:13px;overflow:auto}
+
+        .kv{display:grid;grid-template-columns:220px 1fr;gap:10px}
+        .kv .key{color:#9aa2b1}
+        .kv .value{font-weight:900;color:#e5edff}
+
+        .footer{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:18px;max-width:1100px;margin:40px auto 80px;padding:0 22px;color:#b8c0d4}
+        .footer h3,.footer h4{color:white;margin:0 0 10px}
+        .footer a{color:#cbd5ff;text-decoration:none;transition:opacity .2s}
+        .footer a:hover{opacity:.9}
+
+        .notice{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.12);padding:10px 12px;border-radius:12px;color:#c7cede}
+        .hidden{display:none}
+
+        @media (max-width:920px){
+            .grid.cols-2{grid-template-columns:1fr}
+            .grid.cols-3{grid-template-columns:1fr}
+            .grid.cols-4{grid-template-columns:1fr 1fr}
+            .kv{grid-template-columns:1fr}
+            .footer{grid-template-columns:1fr}
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="#/">
+            <img src="logo.png" alt="$pX402" class="brand-logo" />
+            <span>Pulsechain x402</span>
+        </a>
+        <nav class="nav">
+            <a data-link href="#/test">test</a>
+            <a data-link href="#/px402">px402</a>
+            <a data-link href="#/PX402!" class="bang">PX402!</a>
+            <a data-link href="#/$pX402">$pX402</a>
+        </nav>
+        <div class="actions">
+            <a id="twitterBtn" class="btn btn-twitter" href="https://x.com/pX402" target="_blank" rel="noopener">Twitter</a>
+            <a id="buyBtn" class="btn btn-buy" href="https://app.pulsex.com/#/swap" target="_blank" rel="noopener">Buy</a>
+            <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
+        </div>
+    </header>
+
+    <main id="app"></main>
+
+    <footer class="footer">
+        <div class="footer-col brand-col">
+            <h3>Pulsechain x402</h3>
+            <p>EIP-2612 Permit Payment System implementation on PulseChain.</p>
+            <p>© 2025 Pulsechain x402. Protocol v1.0</p>
+            <p>Built on <a href="https://pulsechain.com" target="_blank" rel="noopener">PulseChain</a></p>
+        </div>
+        <div class="footer-col">
+            <h4>Documentation</h4>
+            <ul>
+                <li><a href="#/test">Test</a></li>
+                <li><a href="#/px402">pX402</a></li>
+                <li><a href="#/PX402!">PX402!</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Protocol</h4>
+            <ul>
+                <li><a href="#/about">About x402</a></li>
+                <li><a href="https://eips.ethereum.org/EIPS/eip-2612" target="_blank" rel="noopener">EIP-2612</a></li>
+                <li><a href="https://pulsechain.com" target="_blank" rel="noopener">PulseChain</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Legal</h4>
+            <ul>
+                <li><a href="#/disclaimer">Disclaimer</a></li>
+                <li><a href="#/terms">Terms of Use</a></li>
+                <li><a href="#/privacy">Privacy Policy</a></li>
+            </ul>
+        </div>
+    </footer>
+
+    <script>
+        /* ==========================================
+        = FILE: app.js
+        ========================================== */
+        (function(){
+            const app = document.querySelector('#app');
+            const connectBtn = document.querySelector('#connectBtn');
+
+            // ===== Links editáveis =====
+            const LINKS = {
+                twitter: 'https://x.com/pX402',
+                buy: 'https://app.pulsex.com/#/swap'
+            };
+            document.querySelector('#twitterBtn').setAttribute('href', LINKS.twitter);
+            document.querySelector('#buyBtn').setAttribute('href', LINKS.buy);
+
+            const views = {
+                home: () => `
+                    <section class="container hero center">
+                        <img class="hero-logo" src="logo.png" alt="Pulsechain x402 $pX402" />
+                        <div class="badge">x402 · EIP-2612</div>
+                        <h1 class="h1">PULSECHAIN X402</h1>
+                        <p class="p">The first x402 EIP-2612 Permit Payment System implementation on PulseChain for <b>$pX402</b>.</p>
+                        <div class="hero-actions">
+                            <a class="btn btn-ghost" href="#/test">test →</a>
+                            <a class="btn btn-ghost" href="#/px402">px402</a>
+                            <a class="btn btn-primary" href="#/PX402!">PX402!</a>
+                            <a class="btn btn-twitter" href="${LINKS.twitter}" target="_blank" rel="noopener">Twitter</a>
+                            <a class="btn btn-buy" href="${LINKS.buy}" target="_blank" rel="noopener">Buy</a>
+                        </div>
+                    </section>
+
+                    <section class="container">
+                        <div class="card hilo">
+                            <h2 class="h2">About</h2>
+                            <p class="p">x402 protocol implementation using <b>EIP-2612 Permit</b> signatures for gasless token transfers on PulseChain. Authorization occurs via cryptographic signatures executed by a facilitator service.</p>
+                        </div>
+
+                        <div class="grid cols-4">
+                            ${featureCard('EIP-2612 Permit','Cryptographic signature based payment authorization for enhanced security.')}
+                            ${featureCard('Gasless Transfers','Execute token transfers without users paying gas.')}
+                            ${featureCard('x402 Protocol','$pX402-tailored implementation on PulseChain.')}
+                            ${featureCard('PulseChain Native','Built for high speed / low cost infrastructure.')}
+                        </div>
+                    </section>
+
+                    <section class="container">
+                        <h2 class="h2">API Endpoints</h2>
+                        ${endpointBox('GET','/px402','List payment requirement and allocation details')}
+                        ${endpointBox('POST','/px402','Submit permit signature to claim allocation')}
+                        ${endpointBox('GET','/PX402!','Premium requirement and allocation details')}
+                        ${endpointBox('POST','/PX402!','Submit premium permit signature to claim allocation')}
+                    </section>
+                `,
+
+                test: () => `
+                    <section class="container hero center">
+                        <div class="badge">Diagnostics</div>
+                        <h1 class="h1">Test Endpoint</h1>
+                        <p class="p">Verify x402 protocol connectivity and service status.</p>
+                    </section>
+                    <section class="container grid cols-1">
+                        <div class="card">
+                            <h3 class="h2">About This Endpoint</h3>
+                            <ul class="list">
+                                <li><span class="dot"></span><span>No authentication required</span></li>
+                                <li><span class="dot"></span><span>Returns service metadata (version, network, timestamp)</span></li>
+                                <li><span class="dot"></span><span>Always returns 200 OK</span></li>
+                            </ul>
+                        </div>
+                        <div class="card">
+                            <div class="kicker mono">API REQUEST</div>
+                            <pre class="code mono">curl ${origin()}/api/test</pre>
+                        </div>
+                        <div class="card">
+                            <div class="kicker mono">RESPONSE (200 OK)</div>
+                            <pre id="testResult" class="code mono">Click "Try It Now"</pre>
+                            <div style="margin-top:10px"><button class="btn btn-primary" id="tryTest">Try It Now →</button></div>
+                        </div>
+                    </section>
+                `,
+
+                px402: () => `
+                    <section class="container hero center">
+                        <div class="badge">Standard Tier</div>
+                        <h1 class="h1">pX402</h1>
+                        <p class="p">Standard tier token allocation with x402 protocol.</p>
+                    </section>
+
+                    <section class="container grid cols-2">
+                        <div class="card">
+                            <h3 class="h2">Sign Permit</h3>
+                            <p class="p">Create a gasless payment authorization using EIP-2612 permit signature.</p>
+                            <div class="notice">Connect your wallet to sign permits</div>
+                            <div style="margin-top:10px"><button class="btn btn-ghost" id="signStd">Sign Standard Permit</button></div>
+                        </div>
+                        <div class="card">
+                            <h3 class="h2">Benefits</h3>
+                            <ul class="list">
+                                <li><span class="dot"></span><span>Gasless token claim via EIP-2612 permit</span></li>
+                                <li><span class="dot"></span><span>Instant allocation after verification</span></li>
+                                <li><span class="dot"></span><span>Transparent on-chain records</span></li>
+                                <li><span class="dot"></span><span>No gas fees required for claiming</span></li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <section class="container grid cols-2">
+                        <div class="card">
+                            <h3 class="h2">Payment Details</h3>
+                            <div class="kv">
+                                <div class="key">Payment Amount</div><div class="value">1 USDC</div>
+                                <div class="key">Token Allocation</div><div class="value">5,000 pX402</div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h3 class="h2">Live API Demonstration</h3>
+                            ${endpointInline('GET','/api/px402','Returns 402 Payment Required with payment details','stdGetBox','stdGetBtn','Test')}
+                            ${endpointInline('POST','/api/px402','Submit payment signature to claim allocation','stdPostBox','stdPostBtn','Claim Tokens')}
+                        </div>
+                    </section>
+                `,
+
+                premium: () => `
+                    <section class="container hero center">
+                        <div class="badge">Premium Tier</div>
+                        <h1 class="h1">PX402!</h1>
+                        <p class="p">Premium tier with enhanced allocation and priority access.</p>
+                    </section>
+
+                    <section class="container grid cols-2">
+                        <div class="card">
+                            <h3 class="h2">Sign Permit</h3>
+                            <p class="p">Create a gasless payment authorization using EIP-2612 permit signature.</p>
+                            <div class="notice">Connect your wallet to sign permits</div>
+                            <div style="margin-top:10px"><button class="btn btn-ghost" id="signPrem">Sign Premium Permit</button></div>
+                        </div>
+                        <div class="card">
+                            <h3 class="h2">Premium Benefits</h3>
+                            <ul class="list">
+                                <li><span class="dot"></span><span>4x token allocation (20,000 pX402)</span></li>
+                                <li><span class="dot"></span><span>Priority transaction processing</span></li>
+                                <li><span class="dot"></span><span>Gasless claim via EIP-2612</span></li>
+                                <li><span class="dot"></span><span>Enhanced allocation reserves</span></li>
+                                <li><span class="dot"></span><span>Premium support access</span></li>
+                                <li><span class="dot"></span><span>Transparent on-chain verification</span></li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <section class="container grid cols-2">
+                        <div class="card">
+                            <h3 class="h2">Payment Details <span class="badge" style="margin-left:8px">Premium</span></h3>
+                            <div class="kv">
+                                <div class="key">Payment Amount</div><div class="value">5 USDC</div>
+                                <div class="key">Token Allocation</div><div class="value">20,000 pX402</div>
+                                <div class="key">Value Per Token</div><div class="value">0.00025 USDC</div>
+                                <div class="key">Network</div><div class="value">PulseChain</div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h3 class="h2">Live API Demonstration</h3>
+                            ${endpointInline('GET','/api/PX402!','Returns 402 Payment Required with premium details','preGetBox','preGetBtn','Test')}
+                            ${endpointInline('POST','/api/PX402!','Submit premium signature to claim allocation','prePostBox','prePostBtn','Claim Premium Allocation')}
+                        </div>
+                    </section>
+
+                    <section class="container">
+                        <div class="card hilo">
+                            <h3 class="h2">Integration Guide</h3>
+                            <p class="p">Premium endpoint follows the same x402 pattern as the standard tier, with enhanced allocation and priority processing.</p>
+                            <div style="margin-top:10px"><a class="btn btn-primary" href="#/px402">View Standard Flow →</a></div>
+                        </div>
+                    </section>
+                `
+            };
+
+            function featureCard(title, body){
+                return `<div class="card"><h3 class="h2" style="font-size:18px">${title}</h3><p class="p">${body}</p></div>`;
+            }
+            function endpointBox(method, path, body){
+                return `
+                    <div class="endpoint" style="margin-bottom:12px">
+                        <div class="endpoint-head"><div class="mono"><span class="method ${method}">${method}</span> ${path}</div></div>
+                        <div class="endpoint-body p">${body}</div>
+                    </div>`;
+            }
+            function endpointInline(method, path, help, boxId, btnId, btnLabel){
+                return `
+                    <div class="endpoint" style="margin:10px 0 18px">
+                        <div class="endpoint-head"><div class="mono"><span class="method ${method}">${method}</span> ${path}</div><button class="btn btn-ghost" id="${btnId}">${btnLabel}</button></div>
+                        <div class="endpoint-body">
+                            <div class="p">${help}</div>
+                            <pre id="${boxId}" class="code mono">Waiting...</pre>
+                        </div>
+                    </div>`;
+            }
+
+            function origin(){ return location.origin || ''; }
+
+            function render(){
+                const h = decodeURIComponent(location.hash || '#/');
+                const route = h.replace('#','');
+                document.querySelectorAll('.nav a').forEach(a=>{ 
+                    // Remove $pX402 from the route comparison for $pX402 nav link to point to home
+                    const compareHash = a.getAttribute('href');
+                    const isActive = route === compareHash.replace('#', '') || (route === '/' && compareHash === '#/$pX402');
+                    a.classList.toggle('active', isActive); 
+                });
+                if(route === '/' || route==='' || route.startsWith('/$pX402')) app.innerHTML = views.home();
+                else if(route.startsWith('/test')) app.innerHTML = views.test();
+                else if(route.startsWith('/px402')) app.innerHTML = views.px402();
+                else if(route.startsWith('/PX402!')) app.innerHTML = views.premium();
+                else app.innerHTML = views.home();
+                attachHandlers();
+            }
+
+            function attachHandlers(){
+                const t = document.querySelector('#tryTest');
+                if(t) t.addEventListener('click', async()=>{
+                    document.querySelector('#testResult').textContent = pretty(await apiMock('/api/test'));
+                });
+
+                const g1 = document.querySelector('#stdGetBtn');
+                if(g1) g1.addEventListener('click', async()=>{
+                    document.querySelector('#stdGetBox').textContent = pretty(await apiMock('/api/px402'));
+                });
+                const p1 = document.querySelector('#stdPostBtn');
+                if(p1) p1.addEventListener('click', async()=>{
+                    document.querySelector('#stdPostBox').textContent = pretty(await apiMock('/api/px402', {method:'POST'}));
+                });
+
+                const g2 = document.querySelector('#preGetBtn');
+                if(g2) g2.addEventListener('click', async()=>{
+                    document.querySelector('#preGetBox').textContent = pretty(await apiMock('/api/PX402!'));
+                });
+                const p2 = document.querySelector('#prePostBtn');
+                if(p2) p2.addEventListener('click', async()=>{
+                    document.querySelector('#prePostBox').textContent = pretty(await apiMock('/api/PX402!', {method:'POST'}));
+                });
+
+                const sStd = document.querySelector('#signStd');
+                if(sStd) sStd.addEventListener('click', ()=>signPermit('standard'));
+                const sPre = document.querySelector('#signPrem');
+                if(sPre) sPre.addEventListener('click', ()=>signPermit('premium'));
+            }
+
+            function pretty(obj){ return JSON.stringify(obj, null, 2); }
+
+            // Mock API para demonstração
+            async function apiMock(path, opt={}){
+                const ts = new Date().toISOString();
+                // Simulação de delay de rede
+                await new Promise(resolve => setTimeout(resolve, 500)); 
+
+                if(path === '/api/test'){
+                    return {status:200, ok:true, service:{name:'px402', version:'1.0.0', network:'PulseChain', timestamp:ts}};
+                }
+                if(path === '/api/px402'){
+                    if(opt.method==='POST') return {status:200, message:'Allocation claimed', tier:'standard', allocation:5000, token:'pX402', network:'PulseChain', txHash:'0x'+'a'.repeat(64)};
+                    return {status:402, message:'Payment Required', payment:{amount:'1 USDC', allocation:'5000 pX402', tokenContract:'0xYourUSDCAddressOnPulse', network:'PulseChain'}};
+                }
+                if(path === '/api/PX402!'){
+                    if(opt.method==='POST') return {status:200, message:'Allocation claimed', tier:'premium', allocation:20000, token:'pX402', network:'PulseChain', txHash:'0x'+'b'.repeat(64)};
+                    return {status:402, message:'Payment Required', payment:{amount:'5 USDC', allocation:'20000 pX402', valuePerToken:'0.00025 USDC', tokenContract:'0xYourUSDCAddressOnPulse', network:'PulseChain'}};
+                }
+                return {status:404, message:'Not found'};
+            }
+
+            // Wallet connect + EIP-2612 skeleton
+            let walletConnected = false;
+            async function connect(){
+                if(!window.ethereum){ alert('No wallet found'); return; }
+                try{
+                    const accounts = await window.ethereum.request({ method:'eth_requestAccounts' });
+                    document.querySelector('#connectBtn').textContent = accounts[0].slice(0,6)+'…'+accounts[0].slice(-4);
+                    walletConnected = true;
+                    // Esconde 'Connect Wallet' na topbar e mostra 'Sign Permit' nas páginas
+                    document.querySelectorAll('.notice').forEach(n=>n.classList.add('hidden'));
+                    document.querySelector('#connectBtn').classList.add('hidden');
+                }catch(e){
+                    console.error('Connection failed:', e);
+                    alert('Wallet connection failed or denied.');
+                }
+            }
+            connectBtn.addEventListener('click', connect);
+
+            async function signPermit(tier){
+                if(!walletConnected){ alert('Connect your wallet first.'); return; }
+
+                const [from] = await window.ethereum.request({ method:'eth_requestAccounts' });
+                // Substitua pelos valores reais antes do deploy
+                const tokenName = 'USDC';
+                const tokenVersion = '1';
+                const verifyingContract = '0xYourUSDCAddressOnPulse'; // Endereço do token (ex: USDC)
+                const chainId = 369; // PulseChain mainnet
+                const spender = '0xYourFacilitatorSpender'; // Endereço do facilitador x402 que receberá o token
+                const value = tier==='premium' ? '5000000' : '1000000'; // 5 USDC ou 1 USDC (6 decimais)
+                const nonce = 0; // **IMPORTANTE**: Deve ser obtido via chamada de contrato do EIP-2612
+                const deadline = Math.floor(Date.now()/1000)+3600;
+
+                const data = {
+                    types: {
+                        EIP712Domain:[
+                            {name:'name', type:'string'},
+                            {name:'version', type:'string'},
+                            {name:'chainId', type:'uint256'},
+                            {name:'verifyingContract', type:'address'}
+                        ],
+                        Permit:[
+                            {name:'owner', type:'address'},
+                            {name:'spender', type:'address'},
+                            {name:'value', type:'uint256'},
+                            {name:'nonce', type:'uint256'},
+                            {name:'deadline', type:'uint256'}
+                        ]
+                    },
+                    primaryType:'Permit',
+                    domain:{ name:tokenName, version:tokenVersion, chainId, verifyingContract },
+                    message:{ owner:from, spender, value, nonce, deadline }
+                };
+                try{
+                    const sig = await window.ethereum.request({ method:'eth_signTypedData_v4', params:[from, JSON.stringify(data)] });
+                    alert('Permit Signed (EIP-712):\n\nSignature: '+sig+'\n\nSubmit this signature to the backend POST /api/'+(tier==='premium'?'PX402!':'px402')+' endpoint.');
+                }catch(e){ 
+                    console.error('Sign error:', e);
+                    alert('Signature canceled or failed.'); 
+                }
+            }
+
+            window.addEventListener('hashchange', render);
+            render();
+        })();
+    </script>
+</body>
+</html>
